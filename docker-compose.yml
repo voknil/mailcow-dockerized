@@ -264,7 +264,7 @@ services:
       volumes:
         - ./data/hooks/dovecot:/hooks:Z
         - ./data/conf/dovecot:/etc/dovecot:z
-        - ./data/assets/ssl:/etc/ssl/mail/:ro,z
+        - ssl-cert-vol-1:/etc/ssl/mail:ro,z
         - ./data/conf/sogo/:/etc/sogo/:z
         - ./data/conf/phpfpm/sogo-sso/:/etc/phpfpm/:z
         - vmail-vol-1:/var/vmail
@@ -350,7 +350,7 @@ services:
       volumes:
         - ./data/hooks/postfix:/hooks:Z
         - ./data/conf/postfix:/opt/postfix/conf:z
-        - ./data/assets/ssl:/etc/ssl/mail/:ro,z
+        - ssl-cert-vol-1:/etc/ssl/mail:ro,z
         - postfix-vol-1:/var/spool/postfix
         - crypt-vol-1:/var/lib/zeyple
         - rspamd-vol-1:/var/lib/rspamd
@@ -565,7 +565,7 @@ services:
         - rspamd-vol-1:/var/lib/rspamd
         - mysql-socket-vol-1:/var/run/mysqld/:z
         - postfix-vol-1:/var/spool/postfix
-        - ./data/assets/ssl:/etc/ssl/mail/:ro,z
+        - ssl-cert-vol-1:/etc/ssl/mail:ro,z
       restart: always
       depends_on:
         - postfix-mailcow
