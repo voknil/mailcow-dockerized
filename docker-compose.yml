@@ -413,12 +413,46 @@ services:
           aliases:
             - memcached
 
+    # Init контейнер для автоматического создания SSL сертификатов перед запуском nginx
+    ssl-init:
+      image: alpine:latest
+      container_name: ${COMPOSE_PROJECT_NAME:-mailcowdockerized}_ssl-init_1
+      volumes:
+        - ssl-cert-vol-1:/data/assets/ssl:rw
+      environment:
+        - MAILCOW_HOSTNAME=${MAILCOW_HOSTNAME:-mail.voknil.ru}
+      command:
+        - sh
+        - -c
+        - |
+          apk add --no-cache openssl > /dev/null 2>&1
+          mkdir -p /data/assets/ssl
+          if [ ! -f /data/assets/ssl/cert.pem ] || [ ! -f /data/assets/ssl/key.pem ]; then
+            echo 'Создаю SSL сертификаты...'
+            openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /data/assets/ssl/key.pem -out /data/assets/ssl/cert.pem -subj "/CN=$${MAILCOW_HOSTNAME:-mail.voknil.ru}" 2>&1
+            chmod 600 /data/assets/ssl/key.pem
+            chmod 644 /data/assets/ssl/cert.pem
+            ls -la /data/assets/ssl/
+            echo 'SSL сертификаты созданы'
+          else
+            echo 'SSL сертификаты уже существуют'
+          fi
+      restart: "no"
+      networks:
+        mailcow-network:
+
     nginx-mailcow:
       depends_on:
-        - redis-mailcow
-        - php-fpm-mailcow
-        - sogo-mailcow
-        - rspamd-mailcow
+        ssl-init:
+          condition: service_completed_successfully
+        redis-mailcow:
+          condition: service_started
+        php-fpm-mailcow:
+          condition: service_started
+        sogo-mailcow:
+          condition: service_started
+        rspamd-mailcow:
+          condition: service_started
       image: ghcr.io/mailcow/nginx:1.05
       dns:
         - ${IPV4_NETWORK:-172.22.1}.254
@@ -442,7 +476,7 @@ services:
       volumes:
         - ./data/web:/web:ro,z
         - ./data/conf/rspamd/dynmaps:/dynmaps:ro,z
-        - ./data/assets/ssl/:/etc/ssl/mail/:ro,z
+        - ssl-cert-vol-1:/etc/ssl/mail:ro,z
         - ./data/conf/nginx/:/etc/nginx/conf.d/:z
         - ./data/conf/rspamd/meta_exporter:/meta_exporter:ro,z
         - ./data/conf/dovecot/auth/mailcowauth.php:/mailcowauth/mailcowauth.php:z
@@ -669,6 +703,7 @@ networks:
         - subnet: ${IPV6_NETWORK:-fd4d:6169:6c63:6f77::/64}
 
 volumes:
+  ssl-cert-vol-1:
   vmail-vol-1:
   vmail-index-vol-1:
   mysql-vol-1:
